@@ -218,6 +218,18 @@ Para investigar uma falha, abra a execução em **Actions**, selecione o sistema
 
 As ações externas estão fixadas em revisões completas, com a versão correspondente nos comentários. O workflow tem permissão de leitura do código, não publica pacotes e não faz deploy. As verificações sinalizam o resultado no PR; para impedir merges com falhas, é necessário exigir esses dois checks na regra de proteção da `main` nas configurações do repositório.
 
+## Análise estática com CodeQL
+
+O workflow [CodeQL](.github/workflows/codeql.yml) analisa Java e GitHub Actions em jobs separados no Ubuntu. É acionado em PRs destinados à `main`, pushes na `main` e semanalmente aos sábados, às 08h26 de São Paulo (11h26 UTC). O acionamento manual fica disponível após a integração do workflow à branch padrão.
+
+A análise de Java usa JDK 17 e compilação explícita com o Maven Wrapper, depois da inicialização do CodeQL. O comando `bash ./mvnw -B -ntp -DskipTests clean package` compila os fontes e gera o JAR; os testes continuam sendo executados pelo workflow `Java CI`. A análise dos arquivos GitHub Actions usa `build-mode: none`.
+
+Os dois jobs usam a suíte `security-extended`, com categorias separadas por linguagem. Os resultados ficam em **Security and quality > Code scanning**, e os checks aparecem como `CodeQL (actions)` e `CodeQL (java-kotlin)` no PR. As ações são fixadas em revisões completas e acompanhadas pelo Dependabot já configurado.
+
+Use **Advanced setup** para esta configuração. Se houver **Default setup** de CodeQL ativo, faça a transição para Advanced setup antes de publicar resultados pelo workflow. Se já existir outro workflow CodeQL no repositório, substitua-o em vez de manter dois analisando as mesmas linguagens. O workflow precisa de `security-events: write` para publicar os resultados e não utiliza packs privados ou secrets da aplicação.
+
+A validação local cobre sintaxe e compilação. A execução do CodeQL e a publicação dos resultados precisam ser confirmadas no GitHub após o push e a abertura do PR.
+
 ## Atualizações de dependências
 
 O [Dependabot](.github/dependabot.yml) verifica dependências Maven e GitHub Actions semanalmente, às segundas-feiras, às 09h no fuso `America/Sao_Paulo`. A configuração passa a valer depois de integrada à branch padrão.
