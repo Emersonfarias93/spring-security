@@ -118,3 +118,19 @@ flowchart TD
 ```
 
 O Dependabot é ativado após a configuração entrar na branch padrão. Os merges continuam sujeitos à revisão; o workflow não realiza merge ou deploy. O acionamento manual do workflow também fica disponível após sua integração à branch padrão.
+
+## Análise estática de segurança
+
+```mermaid
+flowchart TD
+    P[PR para main ou push na main] --> C[Workflow CodeQL]
+    S[Agendamento semanal ou execução manual] --> C
+    C --> A[Analisar GitHub Actions sem build]
+    C --> J[Preparar JDK 17 e inicializar CodeQL Java]
+    J --> B[Compilar com Maven Wrapper sem executar testes]
+    B --> Q[Analisar Java]
+    A --> R[Publicar resultados por linguagem em Code scanning]
+    Q --> R
+```
+
+O workflow Java CI continua responsável pela execução dos testes. O CodeQL usa Advanced setup e a suíte `security-extended`; sua execução e publicação dos resultados serão confirmadas no GitHub.
