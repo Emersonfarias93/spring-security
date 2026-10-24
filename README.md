@@ -2,7 +2,7 @@
 
 Projeto didático em Java para demonstrar autenticação e autorização com Spring Security.
 
-API didática com uma consulta pública e uma consulta que identifica o usuário autenticado por HTTP Basic. O usuário de demonstração fica em memória, com senha configurada por variável de ambiente e protegida por BCrypt.
+API didática com consulta pública, identificação por HTTP Basic e consulta administrativa restrita ao papel `ADMIN`. Os usuários de demonstração ficam em memória, com senhas configuradas por variáveis de ambiente e protegidas por BCrypt.
 
 ## Requisitos
 
@@ -63,7 +63,7 @@ Linux / macOS:
 ./mvnw -B -ntp clean verify
 ```
 
-O comando executa 16 testes, incluindo consultas HTTP com servidor em uma porta disponível e validações da configuração de credenciais. Cobre acesso público, identificação, autenticação inválida, ausência de sessão de autenticação, proteção CSRF e bloqueio de rotas não liberadas. Os testes usam credenciais próprias de teste e não exigem variáveis de ambiente.
+O comando executa 29 testes, incluindo consultas HTTP com servidor em uma porta disponível e validações da configuração de credenciais. Cobre acesso público, identificação, autorização administrativa, autenticação inválida, ausência de sessão de autenticação, proteção CSRF e bloqueio de rotas não liberadas. Os testes usam credenciais próprias de teste e não exigem variáveis de ambiente.
 
 O JAR é gerado em `target/spring-sercurity-0.0.1-SNAPSHOT.jar`. A grafia original `spring-sercurity` nos identificadores foi preservada.
 
@@ -75,6 +75,10 @@ Defina as credenciais no mesmo terminal em que iniciará a aplicação:
 | --- | --- | --- |
 | `DEMO_USER_NAME` | Não | Padrão `user`; não aceita valor vazio |
 | `DEMO_USER_PASSWORD` | Sim | Senha de demonstração; sem valor, a inicialização é interrompida com orientação |
+| `DEMO_ADMIN_NAME` | Não | Padrão `admin`; não aceita valor vazio ou igual ao nome do usuário comum, mesmo com diferença de maiúsculas |
+| `DEMO_ADMIN_PASSWORD` | Sim | Senha do administrador de demonstração; sem valor, a inicialização é interrompida com orientação |
+
+Defina as duas senhas para iniciar a aplicação. Os papéis são fixos: o usuário comum possui `USER`, e o administrador possui `USER` e `ADMIN`. O cliente não escolhe ou altera esses papéis pela requisição.
 
 Windows / PowerShell:
 
@@ -82,6 +86,9 @@ Windows / PowerShell:
 $env:DEMO_USER_NAME = "user"
 $demoPassword = Read-Host "Defina a senha de demonstração" -AsSecureString
 $env:DEMO_USER_PASSWORD = [System.Net.NetworkCredential]::new("", $demoPassword).Password
+$env:DEMO_ADMIN_NAME = "admin"
+$adminPassword = Read-Host "Defina a senha do administrador de demonstração" -AsSecureString
+$env:DEMO_ADMIN_PASSWORD = [System.Net.NetworkCredential]::new("", $adminPassword).Password
 .\mvnw.cmd spring-boot:run
 ```
 
@@ -91,6 +98,9 @@ Linux / macOS, em Bash:
 export DEMO_USER_NAME="user"
 read -r -s -p "Defina a senha de demonstração: " DEMO_USER_PASSWORD
 export DEMO_USER_PASSWORD
+export DEMO_ADMIN_NAME="admin"
+read -r -s -p "Defina a senha do administrador de demonstração: " DEMO_ADMIN_PASSWORD
+export DEMO_ADMIN_PASSWORD
 ./mvnw spring-boot:run
 ```
 
@@ -100,7 +110,20 @@ Ou, após definir as mesmas variáveis e gerar o JAR, em qualquer sistema com o 
 java -jar target/spring-sercurity-0.0.1-SNAPSHOT.jar
 ```
 
-Abra [http://localhost:8080/api/public/hello](http://localhost:8080/api/public/hello). Não há formulário `/login`, senha gerada no console ou emissão de tokens. O papel do usuário configurado é `USER`. Cadastro, persistência e usuário administrador ainda não fazem parte desta entrega.
+### Executar pelo IntelliJ IDEA
+
+As variáveis definidas no terminal integrado não são automaticamente aplicadas ao botão Run da IDE. Configure-as também na execução da aplicação:
+
+1. Abra **Run > Edit Configurations** e selecione a configuração de `SpringSercurityApplication`.
+2. Em **Modify options**, habilite **Environment variables**, se o campo estiver oculto.
+3. Adicione `DEMO_USER_NAME=user`, `DEMO_ADMIN_NAME=admin` e as duas senhas escolhidas por você em `DEMO_USER_PASSWORD` e `DEMO_ADMIN_PASSWORD`.
+4. Clique em **Apply** e execute novamente.
+
+Mantenha a configuração com as senhas local à IDE; não a compartilhe como arquivo do projeto. As mensagens `Defina DEMO_USER_PASSWORD antes de iniciar a aplicação.` e `Defina DEMO_ADMIN_PASSWORD antes de iniciar a aplicação.` indicam qual senha não foi recebida pela execução.
+
+Veja também a [documentação de configuração Spring Boot no IntelliJ](https://www.jetbrains.com/help/idea/run-debug-configuration-spring-boot.html).
+
+Abra [http://localhost:8080/api/public/hello](http://localhost:8080/api/public/hello). Não há formulário `/login`, senha gerada no console, cadastro, persistência ou emissão de tokens.
 
 Para encerrar, pressione `Ctrl+C` no terminal da aplicação. Se a porta 8080 estiver ocupada, escolha outra ao executar o JAR, por exemplo:
 
@@ -116,6 +139,7 @@ Nesse caso, ajuste a porta nas URLs.
 | --- | --- | --- |
 | `GET /api/public/hello` | Público | 200 com mensagem |
 | `GET /api/me` | HTTP Basic válido | 200 com nome e papéis; 401 sem credenciais válidas |
+| `GET /api/admin/hello` | HTTP Basic com papel ADMIN | 200 com mensagem; 401 sem credenciais válidas; 403 para usuário comum |
 
 Com a aplicação em execução, no PowerShell use `curl.exe`; no Linux / macOS use `curl`.
 
@@ -131,9 +155,18 @@ curl.exe -i -u user http://localhost:8080/api/me
 
 # Credencial inválida de exemplo: 401
 curl.exe -i -u user:senha-incorreta http://localhost:8080/api/me
+
+# Usuário comum autenticado: 403
+curl.exe -i -u user http://localhost:8080/api/admin/hello
+
+# Administrador autenticado: 200
+curl.exe -i -u admin http://localhost:8080/api/admin/hello
+
+# Identificação do administrador: 200 com os papéis ADMIN e USER
+curl.exe -i -u admin http://localhost:8080/api/me
 ```
 
-Se alterar `DEMO_USER_NAME`, ajuste `-u user` nas chamadas. A rota pública dispensa o cabeçalho `Authorization`; credenciais inválidas enviadas explicitamente também são rejeitadas nessa rota.
+Se alterar `DEMO_USER_NAME` ou `DEMO_ADMIN_NAME`, ajuste os nomes nas chamadas. O curl solicita a senha do usuário informado. A rota pública dispensa o cabeçalho `Authorization`; credenciais inválidas enviadas explicitamente também são rejeitadas nessa rota.
 
 Resposta pública:
 
@@ -153,6 +186,12 @@ Erro de autenticação:
 {"status":401,"error":"Unauthorized","message":"Autenticação necessária ou credenciais inválidas."}
 ```
 
+Erro de autorização para um usuário autenticado sem permissão:
+
+```json
+{"status":403,"error":"Forbidden","message":"Acesso não permitido."}
+```
+
 As respostas não incluem senha, hash ou detalhes internos de exceções.
 
 ## Política de segurança
@@ -160,20 +199,20 @@ As respostas não incluem senha, hash ou detalhes internos de exceções.
 - HTTP Basic: envie as credenciais em cada chamada protegida. Para exposição remota, use HTTPS.
 - A autenticação não é persistida em sessão; uma chamada autenticada não libera a próxima chamada sem credenciais.
 - O formulário de login e o logout padrão estão desativados. Clientes sem autenticação recebem 401 em JSON, inclusive quando solicitam HTML; não há redirecionamento para login.
-- Somente os dois GETs documentados são liberados. Nas demais rotas, um GET com credenciais válidas recebe 403; sem credenciais válidas, recebe 401. Isso inclui a raiz `/` e a futura `/api/admin/hello`.
+- Somente os três GETs documentados são liberados conforme sua regra de acesso. A consulta administrativa exige `ADMIN` no backend. Nas demais rotas, um GET com credenciais válidas recebe 403, inclusive para o administrador; sem credenciais válidas, recebe 401. A raiz `/` continua bloqueada.
 - A proteção CSRF permanece ativa para métodos que podem alterar estado. Um POST sem token pode retornar 403 antes de chegar ao controller. Não há endpoints de escrita ou de obtenção de token CSRF nesta entrega. HTTP Basic não elimina o risco de CSRF em navegadores.
-- As credenciais de demonstração vêm do ambiente, e o usuário é armazenado em memória com senha BCrypt. Não há persistência de usuários entre inicializações.
+- As credenciais de demonstração vêm do ambiente, e os usuários são armazenados em memória com senhas BCrypt. Os nomes precisam ser distintos, inclusive sem distinguir maiúsculas, para impedir colisão entre as contas. Não há persistência de usuários entre inicializações.
 
 ## Entregas por prioridade
 
 Cada entrega reúne implementação, testes e documentação correspondentes no mesmo commit de valor.
 
 1. **Base atualizada e execução reproduzível:** integrada à `main` no PR #1.
-2. **Consulta pública e identificação autenticada:** implementada nesta entrega, com `/api/public/hello`, `/api/me`, credenciais configuráveis e testes de acesso.
-3. **Acesso administrativo por perfil:** implementar `/api/admin/hello`, restringir a ADMIN e testar os resultados 200, 401 e 403.
+2. **Consulta pública e identificação autenticada:** integrada à `main` no PR #2.
+3. **Acesso administrativo por perfil:** implementado nesta entrega, com `/api/admin/hello` restrito a ADMIN e testes dos resultados 200, 401 e 403.
 4. **Verificação automática:** adicionar build/testes no GitHub Actions e acompanhamento de dependências com Dependabot.
 
-As entregas 3 e 4 permanecem planejadas. `/api/admin/hello` ainda não tem implementação.
+A quarta entrega permanece planejada.
 
 ## Diagramas e referências
 
