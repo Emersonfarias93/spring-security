@@ -95,4 +95,26 @@ sequenceDiagram
 
 O usuário comum é configurado por `DEMO_USER_NAME` e `DEMO_USER_PASSWORD`. O administrador usa `DEMO_ADMIN_NAME` e `DEMO_ADMIN_PASSWORD`, com os papéis `USER` e `ADMIN`. As duas senhas são obrigatórias; os nomes precisam ser distintos mesmo desconsiderando maiúsculas. `/api/me` retorna apenas nome e papéis, inclusive para ADMIN.
 
-O administrador continua sujeito ao bloqueio das rotas não liberadas e não transfere permissões para a próxima requisição sem credenciais. A próxima entrega adicionará a verificação automática no GitHub e o acompanhamento de dependências.
+O administrador continua sujeito ao bloqueio das rotas não liberadas e não transfere permissões para a próxima requisição sem credenciais.
+
+## Fluxo de validação das entregas
+
+A quarta entrega adiciona o workflow abaixo. Sua execução remota será confirmada depois que a configuração for publicada no GitHub.
+
+```mermaid
+flowchart TD
+    A[PR destinado à main ou push na main] --> B[GitHub Actions: Java CI]
+    B --> L[Linux: Java 17 e Maven Wrapper]
+    B --> W[Windows: Java 17 e Maven Wrapper]
+    L --> LT[Compilar e executar testes]
+    W --> WT[Compilar e executar testes]
+    LT --> R[Relatórios Surefire por sistema]
+    WT --> R
+    R --> C{Dois checks aprovados?}
+    C -->|Sim| P[Entrega validada para revisão]
+    C -->|Não| F[Consultar logs e corrigir a falha]
+    D[Dependabot semanal: Maven e Actions] --> U[PRs de atualização]
+    U --> A
+```
+
+O Dependabot é ativado após a configuração entrar na branch padrão. Os merges continuam sujeitos à revisão; o workflow não realiza merge ou deploy. O acionamento manual do workflow também fica disponível após sua integração à branch padrão.

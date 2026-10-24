@@ -203,16 +203,37 @@ As respostas não incluem senha, hash ou detalhes internos de exceções.
 - A proteção CSRF permanece ativa para métodos que podem alterar estado. Um POST sem token pode retornar 403 antes de chegar ao controller. Não há endpoints de escrita ou de obtenção de token CSRF nesta entrega. HTTP Basic não elimina o risco de CSRF em navegadores.
 - As credenciais de demonstração vêm do ambiente, e os usuários são armazenados em memória com senhas BCrypt. Os nomes precisam ser distintos, inclusive sem distinguir maiúsculas, para impedir colisão entre as contas. Não há persistência de usuários entre inicializações.
 
+## Verificação automática no GitHub
+
+O workflow [Java CI](.github/workflows/ci.yml) compila, executa os testes e gera o JAR com Java 17 em Linux e Windows. Ele é acionado em pull requests destinados à `main` e em pushes na `main`. Depois que o workflow estiver na branch padrão, também pode ser iniciado manualmente em **Actions > Java CI > Run workflow**.
+
+As verificações aparecem no PR com os nomes:
+
+- `Build e testes (ubuntu-latest)`
+- `Build e testes (windows-latest)`
+
+O build usa o Maven Wrapper do projeto, com cache das dependências e o comando `clean verify`. No Linux, o Wrapper é chamado por Bash, sem depender de permissão de execução no arquivo. Não são necessários secrets ou senhas de demonstração no GitHub: os testes definem suas próprias credenciais.
+
+Para investigar uma falha, abra a execução em **Actions**, selecione o sistema operacional e consulte o passo de compilação/testes. Os relatórios Surefire ficam nos artefatos `test-reports-ubuntu-latest` e `test-reports-windows-latest`, por 14 dias, inclusive quando os testes falham e geram relatórios. Se a preparação do ambiente falhar antes dos testes, pode não haver relatórios para baixar.
+
+As ações externas estão fixadas em revisões completas, com a versão correspondente nos comentários. O workflow tem permissão de leitura do código, não publica pacotes e não faz deploy. As verificações sinalizam o resultado no PR; para impedir merges com falhas, é necessário exigir esses dois checks na regra de proteção da `main` nas configurações do repositório.
+
+## Atualizações de dependências
+
+O [Dependabot](.github/dependabot.yml) verifica dependências Maven e GitHub Actions semanalmente, às segundas-feiras, às 09h no fuso `America/Sao_Paulo`. A configuração passa a valer depois de integrada à branch padrão.
+
+Atualizações minor e patch são agrupadas por ecossistema; atualizações major permanecem separadas. Há um limite de cinco PRs de atualização de versão abertos por ecossistema. Esses PRs passam pelo mesmo workflow de validação e precisam de revisão antes do merge; não há merge automático configurado. As versões transitivas do Spring continuam sendo gerenciadas pelo parent do Spring Boot.
+
 ## Entregas por prioridade
 
 Cada entrega reúne implementação, testes e documentação correspondentes no mesmo commit de valor.
 
 1. **Base atualizada e execução reproduzível:** integrada à `main` no PR #1.
 2. **Consulta pública e identificação autenticada:** integrada à `main` no PR #2.
-3. **Acesso administrativo por perfil:** implementado nesta entrega, com `/api/admin/hello` restrito a ADMIN e testes dos resultados 200, 401 e 403.
-4. **Verificação automática:** adicionar build/testes no GitHub Actions e acompanhamento de dependências com Dependabot.
+3. **Acesso administrativo por perfil:** integrado à `main` no PR #3.
+4. **Verificação automática:** implementada nesta entrega, com build/testes em Linux e Windows, relatórios e acompanhamento de dependências por Dependabot.
 
-A quarta entrega permanece planejada.
+As quatro entregas planejadas estão implementadas. A confirmação da execução remota desta última entrega depende do push, da abertura do PR e da aprovação do workflow no GitHub.
 
 ## Diagramas e referências
 
@@ -221,4 +242,4 @@ A quarta entrega permanece planejada.
 - [Migração para Spring Boot 4.0](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide).
 - [Notas do Spring Boot 4.1](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.1-Release-Notes).
 
-A validação desta entrega foi realizada no Windows com JDK 17. Os comandos Linux / macOS são fornecidos para uso do Wrapper e ainda não foram executados nesses sistemas nesta revisão.
+A validação local foi realizada no Windows com JDK 17. A sintaxe do workflow foi validada com actionlint; a configuração do Dependabot foi validada contra seu schema. A execução efetiva dos jobs Linux e Windows no GitHub precisa ser confirmada após a publicação. Comandos de execução local no macOS não foram testados nesta revisão.
