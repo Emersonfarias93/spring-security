@@ -21,6 +21,7 @@ public class SecurityConfiguration {
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/hello").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/admin/hello").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .httpBasic(basic -> basic.authenticationEntryPoint(errorHandler))
                 .exceptionHandling(exceptions -> exceptions

@@ -23,7 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "app.security.username=demo-test",
-        "app.security.password=test-only-password"
+        "app.security.password=test-only-password",
+        "app.security.admin-username=admin-test",
+        "app.security.admin-password=admin-test-only-password"
 })
 class SpringSercurityApplicationTests {
 
@@ -103,7 +105,7 @@ class SpringSercurityApplicationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/unknown", "/api/public/unknown", "/api/admin/hello"})
+    @ValueSource(strings = {"/api/unknown", "/api/public/unknown"})
     void shouldDenyRoutesOutsideTheExplicitAllowlist(String path) throws Exception {
         HttpResponse<String> response = get(path, basic("demo-test", "test-only-password"), "application/json");
 
@@ -115,6 +117,70 @@ class SpringSercurityApplicationTests {
     @Test
     void shouldNotExposeDefaultLoginForm() throws Exception {
         assertUnauthorized(get("/login", null, "text/html"));
+    }
+
+    @Test
+    void shouldAllowAdministrativeQueryForAdmin() throws Exception {
+        HttpResponse<String> response = get("/api/admin/hello", basic("admin-test", "admin-test-only-password"), "application/json");
+
+        assertEquals(200, response.statusCode());
+        assertJson(response);
+        assertEquals(objectMapper.readTree("{\"message\":\"Olá! Acesso administrativo autorizado.\"}"),
+                objectMapper.readTree(response.body()));
+    }
+
+    @Test
+    void shouldForbidAdministrativeQueryForRegularUser() throws Exception {
+        assertForbidden(get("/api/admin/hello", basic("demo-test", "test-only-password"), "application/json"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"application/json", "text/html"})
+    void shouldRequireAuthenticationForAdministrativeQuery(String accept) throws Exception {
+        assertUnauthorized(get("/api/admin/hello", null, accept));
+    }
+
+    @Test
+    void shouldRejectInvalidAdminPassword() throws Exception {
+        assertUnauthorized(get("/api/admin/hello", basic("admin-test", "wrong-password"), "application/json"));
+    }
+
+    @Test
+    void shouldKeepExistingQueriesAvailableToAdminWithoutExposingCredentials() throws Exception {
+        String authorization = basic("admin-test", "admin-test-only-password");
+        assertEquals(200, get("/api/public/hello", authorization, "application/json").statusCode());
+
+        HttpResponse<String> response = get("/api/me", authorization, "application/json");
+
+        assertEquals(200, response.statusCode());
+        assertJson(response);
+        assertEquals(objectMapper.readTree("{\"username\":\"admin-test\",\"roles\":[\"ADMIN\",\"USER\"]}"),
+                objectMapper.readTree(response.body()));
+    }
+
+    @Test
+    void shouldNotReuseAdminAuthenticationOrPermissionsForFollowingRequests() throws Exception {
+        HttpResponse<String> admin = get("/api/admin/hello", basic("admin-test", "admin-test-only-password"), "application/json");
+
+        assertEquals(200, admin.statusCode());
+        assertTrue(admin.headers().allValues("Set-Cookie").isEmpty());
+        assertUnauthorized(get("/api/admin/hello", null, "application/json"));
+        assertForbidden(get("/api/admin/hello", basic("demo-test", "test-only-password"), "application/json"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/api/admin/unknown", "/api/public/unknown", "/api/unknown"})
+    void shouldNotGrantAdminAccessToUnlistedRoutes(String path) throws Exception {
+        assertForbidden(get(path, basic("admin-test", "admin-test-only-password"), "application/json"));
+    }
+
+    private void assertForbidden(HttpResponse<String> response) {
+        assertEquals(403, response.statusCode());
+        assertJson(response);
+        assertTrue(response.headers().firstValue("WWW-Authenticate").isEmpty());
+        assertEquals(objectMapper.readTree("""
+                {"status":403,"error":"Forbidden","message":"Acesso não permitido."}
+                """), objectMapper.readTree(response.body()));
     }
 
     private void assertUnauthorized(HttpResponse<String> response) {
