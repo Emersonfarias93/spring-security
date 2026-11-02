@@ -56,7 +56,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.6.3</version>
+                <version>3.7.0</version>
                 <executions>
                     <execution>
                         <id>validate-build-environment</id>
@@ -71,7 +71,7 @@
                                 </requireJavaVersion>
                                 <requireMavenVersion>
                                     <version>[3.6.3,)</version>
-                                    <message>Use o Maven Wrapper do projeto ou Maven 3.6.3 ou superior.</message>
+                                    <message>Use o Maven Wrapper do projeto ou Maven 3.7.0 ou superior.</message>
                                 </requireMavenVersion>
                             </rules>
                         </configuration>
